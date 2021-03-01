@@ -20,6 +20,7 @@ from uer.model_saver import save_model
 from brain import KnowledgeGraph
 from multiprocessing import Process, Pool
 import numpy as np
+import traceback
 
 
 class BertClassifier(nn.Module):
@@ -133,12 +134,11 @@ def add_knowledge_worker(params):
                         mask.append(seg_tag)
                     if t == SEP_TOKEN:
                         seg_tag += 1
-                
                 dataset.append((token_ids, label, mask, pos, vm, qid))
             else:
                 pass
-            
-        except:
+        except Exception as e:
+            traceback.print_exc()
             print("Error line: ", line)
     return dataset
 

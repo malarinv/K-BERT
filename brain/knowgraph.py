@@ -68,20 +68,24 @@ class KnowledgeGraph(object):
                 entities = list(self.lookup_table.get(token, []))[:max_entities]
                 sent_tree.append((token, entities))
 
-                if token in self.special_tags:
-                    token_pos_idx = [pos_idx+1]
-                    token_abs_idx = [abs_idx+1]
-                else:
-                    token_pos_idx = [pos_idx+i for i in range(1, len(token)+1)]
-                    token_abs_idx = [abs_idx+i for i in range(1, len(token)+1)]
+                # if token in self.special_tags:
+                #     token_pos_idx = [pos_idx+1]
+                #     token_abs_idx = [abs_idx+1]
+                # else:
+                #     token_pos_idx = [pos_idx+i for i in range(1, len(token)+1)]
+                #     token_abs_idx = [abs_idx+i for i in range(1, len(token)+1)]
+                token_pos_idx = [pos_idx + 1]
+                token_abs_idx = [abs_idx + 1]
                 abs_idx = token_abs_idx[-1]
 
                 entities_pos_idx = []
                 entities_abs_idx = []
                 for ent in entities:
-                    ent_pos_idx = [token_pos_idx[-1] + i for i in range(1, len(ent)+1)]
+                    # ent_pos_idx = [token_pos_idx[-1] + i for i in range(1, len(ent)+1)]
+                    ent_pos_idx = [token_pos_idx[-1]]
                     entities_pos_idx.append(ent_pos_idx)
-                    ent_abs_idx = [abs_idx + i for i in range(1, len(ent)+1)]
+                    # ent_abs_idx = [abs_idx + i for i in range(1, len(ent)+1)]
+                    ent_abs_idx = [abs_idx]
                     abs_idx = ent_abs_idx[-1]
                     entities_abs_idx.append(ent_abs_idx)
 
@@ -100,12 +104,12 @@ class KnowledgeGraph(object):
                     know_sent += [word]
                     seg += [0]
                 else:
-                    add_word = list(word)
-                    know_sent += add_word 
+                    add_word = [word]
+                    know_sent += add_word
                     seg += [0] * len(add_word)
                 pos += pos_idx_tree[i][0]
                 for j in range(len(sent_tree[i][1])):
-                    add_word = list(sent_tree[i][1][j])
+                    add_word = [sent_tree[i][1][j]]
                     know_sent += add_word
                     seg += [1] * len(add_word)
                     pos += list(pos_idx_tree[i][1][j])
