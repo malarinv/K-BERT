@@ -28,7 +28,7 @@ class KnowledgeGraph(object):
             with open(spo_path, 'r', encoding='utf-8') as f:
                 for line in f:
                     try:
-                        subj, pred, obje = line.strip().split("\t")    
+                        subj, pred, obje = line.strip().split("\t")
                     except:
                         print("[KnowledgeGraph] Bad spo:", line)
                     if self.predicate:
@@ -36,6 +36,8 @@ class KnowledgeGraph(object):
                     else:
                         value = obje
                     if subj in lookup_table.keys():
+                        if value in lookup_table[subj]:
+                            print(line)
                         lookup_table[subj].add(value)
                     else:
                         lookup_table[subj] = set([value])
@@ -140,11 +142,10 @@ class KnowledgeGraph(object):
                 seg = seg[:max_length]
                 pos = pos[:max_length]
                 visible_matrix = visible_matrix[:max_length, :max_length]
-            
+
             know_sent_batch.append(know_sent)
             position_batch.append(pos)
             visible_matrix_batch.append(visible_matrix)
             seg_batch.append(seg)
-        
-        return know_sent_batch, position_batch, visible_matrix_batch, seg_batch
 
+        return know_sent_batch, position_batch, visible_matrix_batch, seg_batch

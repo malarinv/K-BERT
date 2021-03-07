@@ -20,7 +20,7 @@ CUDA_VISIBLE_DEVICES='1' python -u run_kbert_cls.py \
   --test_path ./datasets/book_review/test.tsv \
   --epochs_num 5 --report_steps 100 --batch_size 8 \
   --kg_name HowNet \
-  --output_model_path ./outputs/kbert_bookreview_CnDbpedia.bin
+  --output_model_path ./outputs/kbert_bookreview_HowNet.bin
 
 
 ## Ai Paper English
@@ -61,3 +61,24 @@ CUDA_VISIBLE_DEVICES='1' python -u run_kbert_cls.py \
   --kg_name none \
   --no_vm \
   --output_model_path ./outputs/kbert_vivek.bin
+
+## Evaluate
+CUDA_VISIBLE_DEVICES='1' python -u run_kbert_cls.py \
+  --config_path ./models/google_config.json \
+  --vocab_path ./models/google_vocab_en.txt \
+  --train_path ./datasets/vivek/train_new.tsv \
+  --dev_path ./datasets/vivek/dev_new.tsv \
+  --test_path ./datasets/vivek/test_new.tsv \
+  --kg_name none \
+  --epochs_num 5 --report_steps 100 --batch_size 48 --workers_num 8 \
+  --output_model_path ./outputs/kbert_vivek.bin
+
+## Create scholar_clean SentencePieceUnigramTokenizer
+python -u run_bert_token.py
+
+## MLM on scholar_clean
+python run_mlm.py --tokenizer_name ./models/scholar_clean-unigram.json \
+  --train_file ./datasets/vivek/scholar_clean.train.txt \
+  --validation_file ./datasets/vivek/scholar_clean.dev.txt \
+  --model_type="bert-base-uncased" \
+  --output_dir ./outputs/bert_vivek.bin

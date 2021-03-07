@@ -11,7 +11,7 @@ import collections
 import torch.nn as nn
 from uer.utils.vocab import Vocab
 from uer.utils.constants import *
-from uer.utils.tokenizer import *
+from uer.utils.tokenizer import * 
 from uer.model_builder import build_model
 from uer.utils.optimizers import  BertAdam
 from uer.utils.config import load_hyperparam
@@ -20,7 +20,6 @@ from uer.model_saver import save_model
 from brain import KnowledgeGraph
 from multiprocessing import Process, Pool
 import numpy as np
-import traceback
 
 
 class BertClassifier(nn.Module):
@@ -75,12 +74,12 @@ def add_knowledge_worker(params):
         if line_id % 10000 == 0:
             print("Progress of process {}: {}/{}".format(p_id, line_id, sentences_num))
             sys.stdout.flush()
-        line = line.strip().split('\t')
+        line = line.strip().split(',') #split(',') #original-label split('\t')
         try:
             if len(line) == 2:
                 label = int(line[columns["label"]])
                 text = CLS_TOKEN + line[columns["text_a"]]
-
+   
                 tokens, pos, vm, _ = kg.add_knowledge_with_vm([text], add_pad=True, max_length=args.seq_length)
                 tokens = tokens[0]
                 pos = pos[0]
@@ -90,7 +89,7 @@ def add_knowledge_worker(params):
                 mask = [1 if t != PAD_TOKEN else 0 for t in tokens]
 
                 dataset.append((token_ids, label, mask, pos, vm))
-
+            
             elif len(line) == 3:
                 label = int(line[columns["label"]])
                 text = CLS_TOKEN + line[columns["text_a"]] + SEP_TOKEN + line[columns["text_b"]] + SEP_TOKEN
@@ -112,7 +111,7 @@ def add_knowledge_worker(params):
                         seg_tag += 1
 
                 dataset.append((token_ids, label, mask, pos, vm))
-
+            
             elif len(line) == 4:  # for dbqa
                 qid=int(line[columns["qid"]])
                 label = int(line[columns["label"]])
@@ -134,11 +133,12 @@ def add_knowledge_worker(params):
                         mask.append(seg_tag)
                     if t == SEP_TOKEN:
                         seg_tag += 1
+                
                 dataset.append((token_ids, label, mask, pos, vm, qid))
             else:
                 pass
+            
         except Exception as e:
-            traceback.print_exc()
             print("Error line: ", line)
     return dataset
 
@@ -156,7 +156,7 @@ def main():
     parser.add_argument("--train_path", type=str, required=True,
                         help="Path of the trainset.")
     parser.add_argument("--dev_path", type=str, required=True,
-                        help="Path of the devset.")
+                        help="Path of the devset.") 
     parser.add_argument("--test_path", type=str, required=True,
                         help="Path of the testset.")
     parser.add_argument("--config_path", default="./models/google_config.json", type=str,
@@ -186,7 +186,7 @@ def main():
 
     # Tokenizer options.
     parser.add_argument("--tokenizer", choices=["bert", "char", "word", "space"], default="bert",
-                        help="Specify the tokenizer."
+                        help="Specify the tokenizer." 
                              "Original Google BERT uses bert tokenizer on Chinese corpus."
                              "Char tokenizer segments sentences into characters."
                              "Word tokenizer supports online word segmentation based on jieba segmentor."
@@ -230,7 +230,7 @@ def main():
     with open(args.train_path, mode="r", encoding="utf-8") as f:
         for line_id, line in enumerate(f):
             try:
-                line = line.strip().split("\t")
+                line = line.strip().split(",")
                 if line_id == 0:
                     for i, column_name in enumerate(line):
                         columns[column_name] = i
@@ -239,7 +239,7 @@ def main():
                 labels_set.add(label)
             except:
                 pass
-    args.labels_num = len(labels_set)
+    args.labels_num = len(labels_set) 
 
     # Load vocabulary.
     vocab = Vocab()
@@ -254,13 +254,13 @@ def main():
     # Load or initialize parameters.
     if args.pretrained_model_path is not None:
         # Initialize with pretrained model.
-        model.load_state_dict(torch.load(args.pretrained_model_path), strict=False)
+        model.load_state_dict(torch.load(args.pretrained_model_path), strict=False)  
     else:
         # Initialize with normal distribution.
         for n, p in list(model.named_parameters()):
             if 'gamma' not in n and 'beta' not in n:
                 p.data.normal_(0, 0.02)
-
+    
     # Build classification model.
     model = BertClassifier(args, model)
 
@@ -271,27 +271,25 @@ def main():
         model = nn.DataParallel(model)
 
     model = model.to(device)
-
+    
     # Datset loader.
-    def batch_loader(batch_size, index_ids, input_ids, label_ids, mask_ids, pos_ids, vms):
+    def batch_loader(batch_size, input_ids, label_ids, mask_ids, pos_ids, vms):
         instances_num = input_ids.size()[0]
         for i in range(instances_num // batch_size):
-            index_ids_batch = index_ids[i*batch_size: (i+1)*batch_size]
             input_ids_batch = input_ids[i*batch_size: (i+1)*batch_size, :]
             label_ids_batch = label_ids[i*batch_size: (i+1)*batch_size]
             mask_ids_batch = mask_ids[i*batch_size: (i+1)*batch_size, :]
             pos_ids_batch = pos_ids[i*batch_size: (i+1)*batch_size, :]
             vms_batch = vms[i*batch_size: (i+1)*batch_size]
-            yield index_ids_batch, input_ids_batch, label_ids_batch, mask_ids_batch, pos_ids_batch, vms_batch
+            yield input_ids_batch, label_ids_batch, mask_ids_batch, pos_ids_batch, vms_batch
         if instances_num > instances_num // batch_size * batch_size:
-            index_ids_batch = index_ids[instances_num//batch_size*batch_size:]
             input_ids_batch = input_ids[instances_num//batch_size*batch_size:, :]
             label_ids_batch = label_ids[instances_num//batch_size*batch_size:]
             mask_ids_batch = mask_ids[instances_num//batch_size*batch_size:, :]
             pos_ids_batch = pos_ids[instances_num//batch_size*batch_size:, :]
             vms_batch = vms[instances_num//batch_size*batch_size:]
 
-            yield index_ids_batch, input_ids_batch, label_ids_batch, mask_ids_batch, pos_ids_batch, vms_batch
+            yield input_ids_batch, label_ids_batch, mask_ids_batch, pos_ids_batch, vms_batch
 
     # Build knowledge graph.
     if args.kg_name == 'none':
@@ -300,7 +298,8 @@ def main():
         spo_files = [args.kg_name]
     kg = KnowledgeGraph(spo_files=spo_files, predicate=True)
 
-    def read_sentences(path):
+    def read_dataset(path, workers_num=1):
+
         print("Loading sentences from {}".format(path))
         sentences = []
         with open(path, mode='r', encoding="utf-8") as f:
@@ -308,11 +307,6 @@ def main():
                 if line_id == 0:
                     continue
                 sentences.append(line)
-        return sentences
-
-    def read_dataset(path, workers_num=1):
-
-        sentences = read_sentences(path)
         sentence_num = len(sentences)
 
         print("There are {} sentence in total. We use {} processes to inject knowledge into sentences.".format(sentence_num, workers_num))
@@ -336,12 +330,10 @@ def main():
     def evaluate(args, is_test, metrics='Acc'):
         if is_test:
             dataset = read_dataset(args.test_path, workers_num=args.workers_num)
-            sentences = read_sentences(args.test_path)
         else:
-            dataset = read_dataset(args.dev_path, workers_num=args.workers_num)
-            sentences = read_sentences(args.dev_path)
+            dataset = read_dataset(args.dev_path, workers_num=args.workers_num) 
+            print(dataset)
 
-        index_ids = torch.LongTensor([i for i, sample in enumerate(dataset)])
         input_ids = torch.LongTensor([sample[0] for sample in dataset])
         label_ids = torch.LongTensor([sample[1] for sample in dataset])
         mask_ids = torch.LongTensor([sample[2] for sample in dataset])
@@ -358,10 +350,9 @@ def main():
         confusion = torch.zeros(args.labels_num, args.labels_num, dtype=torch.long)
 
         model.eval()
-        fail_list = []
-
+        
         if not args.mean_reciprocal_rank:
-            for i, (index_ids_batch, input_ids_batch, label_ids_batch,  mask_ids_batch, pos_ids_batch, vms_batch) in enumerate(batch_loader(batch_size, index_ids, input_ids, label_ids, mask_ids, pos_ids, vms)):
+            for i, (input_ids_batch, label_ids_batch,  mask_ids_batch, pos_ids_batch, vms_batch) in enumerate(batch_loader(batch_size, input_ids, label_ids, mask_ids, pos_ids, vms)):
 
                 # vms_batch = vms_batch.long()
                 vms_batch = torch.LongTensor(vms_batch)
@@ -384,29 +375,24 @@ def main():
                 logits = nn.Softmax(dim=1)(logits)
                 pred = torch.argmax(logits, dim=1)
                 gold = label_ids_batch
-                # index_ids_batch
-                fail_list += index_ids_batch[(pred != gold)].tolist()
                 for j in range(pred.size()[0]):
                     confusion[pred[j], gold[j]] += 1
                 correct += torch.sum(pred == gold).item()
-
-            if is_test:
+   
+            '''if is_test:
                 print("Confusion matrix:")
                 print(confusion)
                 print("Report precision, recall, and f1:")
-
+            
             for i in range(confusion.size()[0]):
                 p = confusion[i,i].item()/confusion[i,:].sum().item()
                 r = confusion[i,i].item()/confusion[:,i].sum().item()
                 f1 = 2*p*r / (p+r)
                 if i == 1:
                     label_1_f1 = f1
-                print("Label {}: {:.3f}, {:.3f}, {:.3f}".format(i,p,r,f1))
+                print("Label {}: {:.3f}, {:.3f}, {:.3f}".format(i,p,r,f1)) '''
             print("Acc. (Correct/Total): {:.4f} ({}/{}) ".format(correct/len(dataset), correct, len(dataset)))
-            fail_sentences = [sentences[i] for i in fail_list]
-            with open('./outputs/failed_sentences.txt', 'w') as fail_f:
-                for fs in fail_sentences:
-                    print(fs, file=fail_f)
+            
             if metrics == 'Acc':
                 return correct/len(dataset)
             elif metrics == 'f1':
@@ -414,7 +400,8 @@ def main():
             else:
                 return correct/len(dataset)
         else:
-            for i, (index_ids_batch, input_ids_batch, label_ids_batch,  mask_ids_batch, pos_ids_batch, vms_batch) in enumerate(batch_loader(batch_size, index_ids, input_ids, label_ids, mask_ids, pos_ids, vms)):
+            print('mrr')
+            for i, (input_ids_batch, label_ids_batch,  mask_ids_batch, pos_ids_batch, vms_batch) in enumerate(batch_loader(batch_size, input_ids, label_ids, mask_ids, pos_ids, vms)):
 
                 vms_batch = torch.LongTensor(vms_batch)
 
@@ -431,7 +418,7 @@ def main():
                     logits_all=logits
                 if i >= 1:
                     logits_all=torch.cat((logits_all,logits),0)
-
+        
             order = -1
             gold = []
             for i in range(len(dataset)):
@@ -508,74 +495,74 @@ def main():
             print("MRR", MRR)
             return MRR
 
-    # # Training phase.
-    # print("Start training.")
-    # trainset = read_dataset(args.train_path, workers_num=args.workers_num)
-    # print("Shuffling dataset")
-    # random.shuffle(trainset)
-    # instances_num = len(trainset)
-    # batch_size = args.batch_size
-    #
-    # print("Trans data to tensor.")
-    # print("input_ids")
-    # input_ids = torch.LongTensor([example[0] for example in trainset])
-    # print("label_ids")
-    # label_ids = torch.LongTensor([example[1] for example in trainset])
-    # print("mask_ids")
-    # mask_ids = torch.LongTensor([example[2] for example in trainset])
-    # print("pos_ids")
-    # pos_ids = torch.LongTensor([example[3] for example in trainset])
-    # print("vms")
-    # vms = [example[4] for example in trainset]
-    #
-    # train_steps = int(instances_num * args.epochs_num / batch_size) + 1
-    #
-    # print("Batch size: ", batch_size)
-    # print("The number of training instances:", instances_num)
-    #
-    # param_optimizer = list(model.named_parameters())
-    # no_decay = ['bias', 'gamma', 'beta']
-    # optimizer_grouped_parameters = [
-    #             {'params': [p for n, p in param_optimizer if not any(nd in n for nd in no_decay)], 'weight_decay_rate': 0.01},
-    #             {'params': [p for n, p in param_optimizer if any(nd in n for nd in no_decay)], 'weight_decay_rate': 0.0}
-    # ]
-    # optimizer = BertAdam(optimizer_grouped_parameters, lr=args.learning_rate, warmup=args.warmup, t_total=train_steps)
-    #
-    # total_loss = 0.
-    # result = 0.0
-    # best_result = 0.0
-    #
-    # for epoch in range(1, args.epochs_num+1):
-    #     model.train()
-    #     for i, (input_ids_batch, label_ids_batch, mask_ids_batch, pos_ids_batch, vms_batch) in enumerate(batch_loader(batch_size, input_ids, label_ids, mask_ids, pos_ids, vms)):
-    #         model.zero_grad()
-    #
-    #         vms_batch = torch.LongTensor(vms_batch)
-    #
-    #         input_ids_batch = input_ids_batch.to(device)
-    #         label_ids_batch = label_ids_batch.to(device)
-    #         mask_ids_batch = mask_ids_batch.to(device)
-    #         pos_ids_batch = pos_ids_batch.to(device)
-    #         vms_batch = vms_batch.to(device)
-    #
-    #         loss, _ = model(input_ids_batch, label_ids_batch, mask_ids_batch, pos=pos_ids_batch, vm=vms_batch)
-    #         if torch.cuda.device_count() > 1:
-    #             loss = torch.mean(loss)
-    #         total_loss += loss.item()
-    #         if (i + 1) % args.report_steps == 0:
-    #             print("Epoch id: {}, Training steps: {}, Avg loss: {:.3f}".format(epoch, i+1, total_loss / args.report_steps))
-    #             sys.stdout.flush()
-    #             total_loss = 0.
-    #         loss.backward()
-    #         optimizer.step()
-    #
-    #     print("Start evaluation on dev dataset.")
-    #     result = evaluate(args, False)
-    #     if result > best_result:
-    #         best_result = result
-    #         save_model(model, args.output_model_path)
-    #     else:
-    #         continue
+    # Training phase.
+    print("Start training.")
+    trainset = read_dataset(args.train_path, workers_num=args.workers_num)
+    print("Shuffling dataset")
+    random.shuffle(trainset)
+    instances_num = len(trainset)
+    batch_size = args.batch_size
+
+    print("Trans data to tensor.")
+    print("input_ids")
+    input_ids = torch.LongTensor([example[0] for example in trainset])
+    print("label_ids")
+    label_ids = torch.LongTensor([example[1] for example in trainset])
+    print("mask_ids")
+    mask_ids = torch.LongTensor([example[2] for example in trainset])
+    print("pos_ids")
+    pos_ids = torch.LongTensor([example[3] for example in trainset])
+    print("vms")
+    vms = [example[4] for example in trainset]
+
+    train_steps = int(instances_num * args.epochs_num / batch_size) + 1
+
+    print("Batch size: ", batch_size)
+    print("The number of training instances:", instances_num)
+
+    param_optimizer = list(model.named_parameters())
+    no_decay = ['bias', 'gamma', 'beta']
+    optimizer_grouped_parameters = [
+                {'params': [p for n, p in param_optimizer if not any(nd in n for nd in no_decay)], 'weight_decay_rate': 0.01},
+                {'params': [p for n, p in param_optimizer if any(nd in n for nd in no_decay)], 'weight_decay_rate': 0.0}
+    ]
+    optimizer = BertAdam(optimizer_grouped_parameters, lr=args.learning_rate, warmup=args.warmup, t_total=train_steps)
+
+    total_loss = 0.
+    result = 0.0
+    best_result = 0.0
+    
+    for epoch in range(1, args.epochs_num+1):
+        model.train()
+        for i, (input_ids_batch, label_ids_batch, mask_ids_batch, pos_ids_batch, vms_batch) in enumerate(batch_loader(batch_size, input_ids, label_ids, mask_ids, pos_ids, vms)):
+            model.zero_grad()
+
+            vms_batch = torch.LongTensor(vms_batch)
+
+            input_ids_batch = input_ids_batch.to(device)
+            label_ids_batch = label_ids_batch.to(device)
+            mask_ids_batch = mask_ids_batch.to(device)
+            pos_ids_batch = pos_ids_batch.to(device)
+            vms_batch = vms_batch.to(device)
+
+            loss, _ = model(input_ids_batch, label_ids_batch, mask_ids_batch, pos=pos_ids_batch, vm=vms_batch)
+            if torch.cuda.device_count() > 1:
+                loss = torch.mean(loss)
+            total_loss += loss.item()
+            if (i + 1) % args.report_steps == 0:
+                print("Epoch id: {}, Training steps: {}, Avg loss: {:.3f}".format(epoch, i+1, total_loss / args.report_steps))
+                sys.stdout.flush()
+                total_loss = 0.
+            loss.backward()
+            optimizer.step()
+
+        print("Start evaluation on dev dataset.")
+        result = evaluate(args, False)
+        if result > best_result:
+            best_result = result
+            save_model(model, args.output_model_path)
+        else:
+            continue
 
         print("Start evaluation on test dataset.")
         evaluate(args, True)
@@ -592,3 +579,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
