@@ -6,6 +6,7 @@ import os
 import brain.config as config
 import pkuseg
 import numpy as np
+from collections import Counter
 
 
 class KnowledgeGraph(object):
@@ -18,21 +19,24 @@ class KnowledgeGraph(object):
         self.spo_file_paths = [config.KGS.get(f, f) for f in spo_files]
         self.lookup_table = self._create_lookup_table()
         self.segment_vocab = list(self.lookup_table.keys()) + config.NEVER_SPLIT_TAG
-        self.tokenizer = pkuseg.pkuseg(model_name="default", postag=False, user_dict=self.segment_vocab)
+        self.tokenizer = pkuseg.pkuseg(
+            model_name="default", postag=False, user_dict=self.segment_vocab
+        )
         self.special_tags = set(config.NEVER_SPLIT_TAG)
+        self.useable_triples = Counter()  # Added
 
     def _create_lookup_table(self):
         lookup_table = {}
         for spo_path in self.spo_file_paths:
             print("[KnowledgeGraph] Loading spo from {}".format(spo_path))
-            with open(spo_path, 'r', encoding='utf-8') as f:
+            with open(spo_path, "r", encoding="utf-8") as f:
                 for line in f:
                     try:
                         subj, pred, obje = line.strip().split("\t")
                     except:
                         print("[KnowledgeGraph] Bad spo:", line)
                     if self.predicate:
-                        value = pred + obje
+                        value = pred + " " + obje
                     else:
                         value = obje
                     if subj in lookup_table.keys():
@@ -43,7 +47,9 @@ class KnowledgeGraph(object):
                         lookup_table[subj] = set([value])
         return lookup_table
 
-    def add_knowledge_with_vm(self, sent_batch, max_entities=config.MAX_ENTITIES, add_pad=True, max_length=128):
+    def add_knowledge_with_vm(
+        self, sent_batch, max_entities=config.MAX_ENTITIES, add_pad=True, max_length=128
+    ):
         """
         input: sent_batch - list of sentences, e.g., ["abcd", "efgh"]
         return: know_sent_batch - list of sentences with entites embedding
@@ -65,9 +71,25 @@ class KnowledgeGraph(object):
             pos_idx = -1
             abs_idx = -1
             abs_idx_src = []
-            for token in split_sent:
+            for (i, token) in enumerate(split_sent):
+                double_token = split_sent[i - 1] + " " + token if i >= 1 else token
+                triple_token = (
+                    split_sent[i - 2] + " " + double_token if i >= 2 else token
+                )
+                sing_token_kg = self.lookup_table.get(token, [])
+                double_token_kg = self.lookup_table.get(double_token, sing_token_kg)
+                triple_token_kg = self.lookup_table.get(
+                    triple_token,
+                    double_token_kg,
+                )
+                if triple_token in self.lookup_table:  # Added
+                    self.useable_triples.update([triple_token])  # Added
+                elif double_token in self.lookup_table:  # Added
+                    self.useable_triples.update([double_token])  # Added
+                elif token in self.lookup_table:  # Added
+                    self.useable_triples.update([token])  # Added
 
-                entities = list(self.lookup_table.get(token, []))[:max_entities]
+                entities = list(triple_token_kg)[:max_entities]
                 sent_tree.append((token, entities))
 
                 # if token in self.special_tags:
@@ -123,7 +145,9 @@ class KnowledgeGraph(object):
             for item in abs_idx_tree:
                 src_ids = item[0]
                 for id in src_ids:
-                    visible_abs_idx = abs_idx_src + [idx for ent in item[1] for idx in ent]
+                    visible_abs_idx = abs_idx_src + [
+                        idx for ent in item[1] for idx in ent
+                    ]
                     visible_matrix[id, visible_abs_idx] = 1
                 for ent in item[1]:
                     for id in ent:
@@ -136,7 +160,9 @@ class KnowledgeGraph(object):
                 know_sent += [config.PAD_TOKEN] * pad_num
                 seg += [0] * pad_num
                 pos += [max_length - 1] * pad_num
-                visible_matrix = np.pad(visible_matrix, ((0, pad_num), (0, pad_num)), 'constant')  # pad 0
+                visible_matrix = np.pad(
+                    visible_matrix, ((0, pad_num), (0, pad_num)), "constant"
+                )  # pad 0
             else:
                 know_sent = know_sent[:max_length]
                 seg = seg[:max_length]

@@ -6,6 +6,7 @@ FILE_DIR_PATH = os.path.dirname(os.path.abspath(__file__))
 KGS = {
     'HowNet': os.path.join(FILE_DIR_PATH, 'kgs/HowNet.spo'),
     'HowNet_newt': os.path.join(FILE_DIR_PATH, 'kgs/HowNet_newt.spo'),
+    'AIKG': os.path.join(FILE_DIR_PATH, 'kgs/AIKG.spo'),
     'CnDbpedia': os.path.join(FILE_DIR_PATH, 'kgs/CnDbpedia.spo'),
     'Medical': os.path.join(FILE_DIR_PATH, 'kgs/Medical.spo'),
 }

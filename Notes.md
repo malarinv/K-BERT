@@ -32,7 +32,7 @@ CUDA_VISIBLE_DEVICES='1' python -u run_kbert_cls.py \
   --dev_path ./datasets/vivek/dev_new.tsv \
   --test_path ./datasets/vivek/test_new.tsv \
   --epochs_num 20 --report_steps 100 --batch_size 32 --workers_num 8 \
-  --kg_name HowNet_newt \
+  --kg_name AIKG \
   --output_model_path ./outputs/kbert_vivek_vm_kg_pt.bin
 
 
