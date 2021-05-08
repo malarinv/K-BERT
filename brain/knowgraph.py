@@ -6,7 +6,8 @@ import os
 import brain.config as config
 import pkuseg
 import numpy as np
-from collections import Counter
+from collections import Counter, defaultdict
+from pprint import pprint
 
 
 class KnowledgeGraph(object):
@@ -14,9 +15,10 @@ class KnowledgeGraph(object):
     spo_files - list of Path of *.spo files, or default kg name. e.g., ['HowNet']
     """
 
-    def __init__(self, spo_files, predicate=False):
+    def __init__(self, spo_files, predicate=False, max_entities=config.MAX_ENTITIES):
         self.predicate = predicate
         self.spo_file_paths = [config.KGS.get(f, f) for f in spo_files]
+        self.max_entities = max_entities
         self.lookup_table = self._create_lookup_table()
         self.segment_vocab = list(self.lookup_table.keys()) + config.NEVER_SPLIT_TAG
         self.tokenizer = pkuseg.pkuseg(
@@ -24,6 +26,7 @@ class KnowledgeGraph(object):
         )
         self.special_tags = set(config.NEVER_SPLIT_TAG)
         self.useable_triples = Counter()  # Added
+        self.injected_knowledge = defaultdict(list)  # Added
 
     def _create_lookup_table(self):
         lookup_table = {}
@@ -40,11 +43,23 @@ class KnowledgeGraph(object):
                     else:
                         value = obje
                     if subj in lookup_table.keys():
-                        if value in lookup_table[subj]:
-                            print(line)
-                        lookup_table[subj].add(value)
+                        if (
+                            value not in lookup_table[subj]
+                            # and len(lookup_table[subj]) < self.max_entities
+                        ):
+                            # print(line)
+                            lookup_table[subj].append(value)
                     else:
-                        lookup_table[subj] = set([value])
+                        # lookup_table[subj] = set([value])
+                        lookup_table[subj] = [value]
+        # pprint(lookup_table)
+        print('1.--------Taking a look at Lookup Table--------', type(lookup_table), len(lookup_table))
+        dict_items = lookup_table.items()  # Added
+        # lookup_table_items = list(dict_items)[:5]
+        lookup_table_items = list(dict_items)
+        # lookup_table_items = sorted(lookup_table_items)
+        print('Printing Lookup Table ---')
+        pprint(lookup_table_items[:5])
         return lookup_table
 
     def add_knowledge_with_vm(
@@ -82,14 +97,23 @@ class KnowledgeGraph(object):
                     triple_token,
                     double_token_kg,
                 )
+                injected_token = ''
                 if triple_token in self.lookup_table:  # Added
-                    self.useable_triples.update([triple_token])  # Added
+                    injected_token = triple_token
+                    # self.useable_triples.update([triple_token])  # Added
                 elif double_token in self.lookup_table:  # Added
-                    self.useable_triples.update([double_token])  # Added
+                    injected_token = double_token
+                    # self.useable_triples.update([double_token])  # Added
                 elif token in self.lookup_table:  # Added
-                    self.useable_triples.update([token])  # Added
+                    injected_token = token
+                    # self.useable_triples.update([token])  # Added
 
-                entities = list(triple_token_kg)[:max_entities]
+                if injected_token != '':
+                    self.useable_triples.update([injected_token])  # Added
+
+                entities = triple_token_kg[:max_entities]
+                if injected_token != '':
+                    self.injected_knowledge[injected_token] = entities  # Added
                 sent_tree.append((token, entities))
 
                 # if token in self.special_tags:

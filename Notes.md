@@ -82,3 +82,16 @@ python run_mlm.py --tokenizer_name ./models/scholar_clean-unigram.json \
   --validation_file ./datasets/vivek/scholar_clean.dev.txt \
   --model_type="bert-base-uncased" \
   --output_dir ./outputs/bert_vivek.bin
+
+
+## Ai Paper English
+CUDA_VISIBLE_DEVICES='1' python -u run_kbert_cls.py \
+  --pretrained_model_path ./models/google_model_en_uncased_base.bin \
+  --config_path ./models/google_config.json \
+  --vocab_path ./models/google_vocab_en.txt \
+  --train_path ./datasets/vivek/train_new_sample.tsv \
+  --dev_path ./datasets/vivek/dev_new.tsv \
+  --test_path ./datasets/vivek/test_new.tsv \
+  --epochs_num 20 --report_steps 100 --batch_size 32 --workers_num 1 \
+  --kg_name AIKGTri \
+  --output_model_path ./outputs/kbert_vivek_vm_kg_pt-aikgtri.bin

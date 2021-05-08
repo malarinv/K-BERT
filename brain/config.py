@@ -7,6 +7,8 @@ KGS = {
     'HowNet': os.path.join(FILE_DIR_PATH, 'kgs/HowNet.spo'),
     'HowNet_newt': os.path.join(FILE_DIR_PATH, 'kgs/HowNet_newt.spo'),
     'AIKG': os.path.join(FILE_DIR_PATH, 'kgs/AIKG.spo'),
+    'AIKGTri': os.path.join(FILE_DIR_PATH, 'kgs/aikg_trigram.spo'),
+    'Scholar': os.path.join(FILE_DIR_PATH, 'kgs/scholar_unigram.spo'),
     'CnDbpedia': os.path.join(FILE_DIR_PATH, 'kgs/CnDbpedia.spo'),
     'Medical': os.path.join(FILE_DIR_PATH, 'kgs/Medical.spo'),
 }
