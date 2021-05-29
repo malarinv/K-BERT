@@ -2,12 +2,13 @@
 """
 KnowledgeGraph
 """
-import os
+# import os
 import brain.config as config
 import pkuseg
 import numpy as np
 from collections import Counter, defaultdict
 from pprint import pprint
+from brain.lm import score
 
 
 class KnowledgeGraph(object):
@@ -44,7 +45,8 @@ class KnowledgeGraph(object):
                         value = obje
                     if subj in lookup_table.keys():
                         if (
-                            value not in lookup_table[subj]
+                            value
+                            not in lookup_table[subj]
                             # and len(lookup_table[subj]) < self.max_entities
                         ):
                             # print(line)
@@ -53,12 +55,16 @@ class KnowledgeGraph(object):
                         # lookup_table[subj] = set([value])
                         lookup_table[subj] = [value]
         # pprint(lookup_table)
-        print('1.--------Taking a look at Lookup Table--------', type(lookup_table), len(lookup_table))
+        print(
+            "1.--------Taking a look at Lookup Table--------",
+            type(lookup_table),
+            len(lookup_table),
+        )
         dict_items = lookup_table.items()  # Added
         # lookup_table_items = list(dict_items)[:5]
         lookup_table_items = list(dict_items)
         # lookup_table_items = sorted(lookup_table_items)
-        print('Printing Lookup Table ---')
+        print("Printing Lookup Table ---")
         pprint(lookup_table_items[:5])
         return lookup_table
 
@@ -97,7 +103,7 @@ class KnowledgeGraph(object):
                     triple_token,
                     double_token_kg,
                 )
-                injected_token = ''
+                injected_token = ""
                 if triple_token in self.lookup_table:  # Added
                     injected_token = triple_token
                     # self.useable_triples.update([triple_token])  # Added
@@ -108,11 +114,27 @@ class KnowledgeGraph(object):
                     injected_token = token
                     # self.useable_triples.update([token])  # Added
 
-                if injected_token != '':
+                if injected_token != "":
                     self.useable_triples.update([injected_token])  # Added
 
-                entities = triple_token_kg[:max_entities]
-                if injected_token != '':
+                if len(triple_token_kg) > 1:
+                    lm_orig_sent = " ".join(split_sent[1:])
+                    lm_replaced_sent = [
+                        (
+                            score(
+                                lm_orig_sent.replace(
+                                    injected_token, injected_token + " " + e
+                                )
+                            ),
+                            e,
+                        )
+                        for e in triple_token_kg
+                    ]
+                    entities = [i for (s, i) in sorted(lm_replaced_sent)[:max_entities]]
+                else:
+                    entities = triple_token_kg[:max_entities]
+
+                if injected_token != "":
                     self.injected_knowledge[injected_token] = entities  # Added
                 sent_tree.append((token, entities))
 
